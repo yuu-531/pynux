@@ -1,11 +1,9 @@
 import os
 
-# === 絶対パスで安全にアクセス ===
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))           # pynux/
-ROOT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))        # 親フォルダ
-DATA_DIR = os.path.join(ROOT_DIR, "data")                       # data/
-SYSTEM_DIR = os.path.join(DATA_DIR, "system")                   # data/system/
-COMMANDS_DIR = os.path.join(SYSTEM_DIR, "commands")             # data/system/Commands/
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # main.pyのある場所
+DATA_DIR = os.path.join(BASE_DIR, "data")
+SYSTEM_DIR = os.path.join(DATA_DIR, "system")
+COMMANDS_DIR = os.path.join(SYSTEM_DIR, "commands")            # data/system/Commands/
 USER_DIR = os.path.join(DATA_DIR, "user")                       # data/user/
 
 def init_directories():
