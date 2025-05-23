@@ -1,70 +1,74 @@
 import os
-import sys
 
-DATA_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'data'))
+# === 絶対パスで安全にアクセス ===
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))           # pynux/
+ROOT_DIR = os.path.abspath(os.path.join(BASE_DIR, ".."))        # 親フォルダ
+DATA_DIR = os.path.join(ROOT_DIR, "data")                       # data/
+SYSTEM_DIR = os.path.join(DATA_DIR, "system")                   # data/system/
+COMMANDS_DIR = os.path.join(SYSTEM_DIR, "commands")             # data/system/Commands/
+USER_DIR = os.path.join(DATA_DIR, "user")                       # data/user/
 
-def resolve_path(virtual_path):
-    if not virtual_path.startswith('/'):
-        print("パスは必ず / で始めてね！")
-        return None
-    full_path = os.path.abspath(os.path.join(DATA_ROOT, virtual_path.lstrip('/')))
-    if not full_path.startswith(DATA_ROOT):
-        print("dataフォルダの外にはアクセスできないよ！")
-        return None
-    return full_path
+def init_directories():
+    os.makedirs(COMMANDS_DIR, exist_ok=True)
+    os.makedirs(USER_DIR, exist_ok=True)
 
 def load_commands():
-    commands_dir = resolve_path('/system/Commands')
     commands = {}
-    if not commands_dir:
+    if not os.path.exists(COMMANDS_DIR):
+        print(f"[ERROR] コマンドディレクトリが存在しません: {COMMANDS_DIR}")
         return commands
 
-    for fname in os.listdir(commands_dir):
-        if fname.endswith('.py'):
+    for fname in os.listdir(COMMANDS_DIR):
+        if fname.endswith(".py"):
             cmd_name = fname[:-3]
-            path = os.path.join(commands_dir, fname)
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    code = compile(f.read(), fname, 'exec')
-                    cmd_globals = {}
-                    exec(code, cmd_globals)
-                    if 'run' in cmd_globals:
-                        commands[cmd_name] = cmd_globals['run']
-            except Exception as e:
-                print(f"コマンド{cmd_name}の読み込みエラー: {e}")
+            with open(os.path.join(COMMANDS_DIR, fname), "r", encoding="utf-8") as f:
+                commands[cmd_name] = f.read()
     return commands
 
+def execute_command(commands, name, args):
+    if name not in commands:
+        print(f"[!] コマンド '{name}' は見つかりません")
+        return
+
+    scope = {
+        "__name__": "__main__",
+        "__args__": args,
+        "USER_DIR": USER_DIR,
+        "commands": commands
+    }
+
+    try:
+        exec(commands[name], scope)
+        if "run" in scope and callable(scope["run"]):
+            scope["run"](args, commands, USER_DIR)
+    except Exception as e:
+        print(f"[ERROR] コマンド '{name}' 実行中にエラー: {e}")
+
 def main():
-    print("Welcome to Pynux!")
+    init_directories()
     commands = load_commands()
-    current_dir = '/user'
+
+    print("=== Pynux Terminal ===")
+    print("終了するには 'exit' を入力")
 
     while True:
         try:
-            inp = input(f"Pynux:{current_dir}$ ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print("\n終了します。")
-            break
+            cmd = input("pynux$ ").strip()
+            if cmd == "":
+                continue
+            if cmd.lower() in ["exit", "quit"]:
+                print("Pynux を終了します")
+                break
 
-        if inp == '':
-            continue
-        if inp == 'exit':
-            print("Bye!")
-            break
+            parts = cmd.split()
+            cmd_name = parts[0]
+            cmd_args = parts[1:]
+            execute_command(commands, cmd_name, cmd_args)
 
-        parts = inp.split()
-        cmd = parts[0]
-        args = parts[1:]
+        except KeyboardInterrupt:
+            print("\n[!] 強制終了 (Ctrl+C)")
+        except Exception as e:
+            print(f"[ERROR] メインループ中にエラー: {e}")
 
-        if cmd in commands:
-            try:
-                result = commands[cmd](args, current_dir, resolve_path)
-                if isinstance(result, str):
-                    current_dir = result  # cdコマンド用
-            except Exception as e:
-                print(f"コマンド実行中にエラー: {e}")
-        else:
-            print(f"コマンド '{cmd}' は見つかりません。")
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
